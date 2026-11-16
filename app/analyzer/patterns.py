@@ -30,6 +30,7 @@ class PatternType(str, Enum):
 class PatternFinding:
     """A detected weakness. Deliberately never stores the matched text."""
     pattern_type: PatternType
+    start: int  # index in the password; internal use only
     length: int
     description: str
 
@@ -37,11 +38,10 @@ class PatternFinding:
 def detect_repeated_characters(password: str) -> list[PatternFinding]:
     """Find runs of the same character, e.g. 'aaaa'."""
     findings = []
-    # (.) captures one char; \1{2,} means "the same char, 2+ more times".
     for match in re.finditer(r"(.)\1{2,}", password.lower(), re.DOTALL):
         n = match.end() - match.start()
         findings.append(PatternFinding(
-            PatternType.REPEATED_CHARACTERS, n,
+            PatternType.REPEATED_CHARACTERS, match.start(), n,
             f"Same character repeated {n} times in a row",
         ))
     return findings
@@ -51,11 +51,11 @@ def detect_repeated_block(password: str) -> list[PatternFinding]:
     """Detect a password made of one block repeated, e.g. 'abcabc'."""
     match = re.fullmatch(r"(.{2,}?)\1+", password.lower(), re.DOTALL)
     if not match or len(set(match.group(1))) == 1:
-        return []  # no repetition, or single-char case (handled above)
+        return []
     block = match.group(1)
     times = len(password) // len(block)
     return [PatternFinding(
-        PatternType.REPEATED_BLOCK, len(password),
+        PatternType.REPEATED_BLOCK, 0, len(password),
         f"Password is a {len(block)}-character block repeated {times} times",
     )]
 
@@ -90,7 +90,7 @@ def detect_sequences(password: str) -> list[PatternFinding]:
             if run >= MIN_SEQUENCE:
                 direction = "ascending" if step == 1 else "descending"
                 findings.append(PatternFinding(
-                    PatternType.SEQUENCE, run,
+                    PatternType.SEQUENCE, i, run,
                     f"Sequence of {run} consecutive characters ({direction})",
                 ))
             i = j
@@ -113,7 +113,7 @@ def detect_keyboard_walks(password: str) -> list[PatternFinding]:
                 k += 1
         if longest:
             findings.append(PatternFinding(
-                PatternType.KEYBOARD_WALK, longest,
+                PatternType.KEYBOARD_WALK, i, longest,
                 f"Keyboard pattern of {longest} adjacent keys",
             ))
             i += longest
@@ -125,8 +125,8 @@ def detect_keyboard_walks(password: str) -> list[PatternFinding]:
 def detect_years(password: str) -> list[PatternFinding]:
     """Find year-like numbers (1900-2039) not part of a longer digit run."""
     return [
-        PatternFinding(PatternType.YEAR, 4, "Contains a year-like number")
-        for _ in re.finditer(r"(?<!\d)(?:19\d{2}|20[0-3]\d)(?!\d)", password)
+        PatternFinding(PatternType.YEAR, m.start(), 4, "Contains a year-like number")
+        for m in re.finditer(r"(?<!\d)(?:19\d{2}|20[0-3]\d)(?!\d)", password)
     ]
 
 
@@ -152,7 +152,7 @@ def detect_dictionary_words(password: str) -> list[PatternFinding]:
             continue
         consumed[start:end] = [True] * len(word)
         findings.append(PatternFinding(
-            PatternType.DICTIONARY_WORD, len(word),
+            PatternType.DICTIONARY_WORD, start, len(word),
             f"Contains a common word ({len(word)} letters)",
         ))
     return findings
