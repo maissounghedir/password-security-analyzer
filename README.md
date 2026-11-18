@@ -1,5 +1,5 @@
 # Password Security Analyzer
-
+![Tests](https://github.com/maissounghedir/password-security-analyzer/actions/workflows/tests.yml/badge.svg)
 A simple REST API built with Python and FastAPI that checks how strong a password is, explains its weaknesses, and generates secure passwords.
 
 Passwords are analyzed in memory only. They are never stored or logged.
