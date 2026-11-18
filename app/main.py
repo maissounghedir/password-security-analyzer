@@ -22,7 +22,7 @@ app = FastAPI(
         "Scores and entropy values are estimates, not guarantees of security. "
         "Submitted passwords are never stored or logged."
     ),
-    version="0.3.0",
+    version="1.0.0",
 )
 
 # --- Middleware -------------------------------------------------------------
